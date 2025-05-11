@@ -1,0 +1,11 @@
+langchain
+langchain-ollama 
+tokenizers
+datasets  
+tiktoken
+langchain-text-splitters 
+langchain-qdrant
+qdrant-client
+python-dotenv
+langchain-community
+pandas
