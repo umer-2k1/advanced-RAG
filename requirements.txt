@@ -9,3 +9,4 @@ qdrant-client
 python-dotenv
 langchain-community
 pandas
+langsmith
