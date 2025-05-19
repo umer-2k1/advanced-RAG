@@ -10,9 +10,12 @@ from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
 from langchain_ollama.llms import OllamaLLM
 from langchain.retrievers.multi_query import MultiQueryRetriever
-from dotenv import load_dotenv
-from uuid import uuid4
+from dotenv import load_dotenv 
 import os
+import logging
+
+logging.basicConfig()
+logging.getLogger("langchain.retrievers.multi_query").setLevel(logging.INFO)
  
 load_dotenv()
 QDRANT_URL = os.getenv("QDRANT_URL")
@@ -72,8 +75,7 @@ def create_multi_query_retriever(query):
     base_retriever = vector_store.as_retriever()
     retriever = MultiQueryRetriever.from_llm(
         llm=llm,
-        retriever=base_retriever,
-        # query_prompt=query_prompt, 
+        retriever=base_retriever, 
     )
     unique_docs = retriever.invoke(query)
     print("unique_docs::::::", unique_docs)
@@ -82,12 +84,12 @@ def create_multi_query_retriever(query):
     
      
 
-# def query_with_multi_query_retriever(query, k_initial=15):
-#     retriever = create_multi_query_retriever(query, k_initial)
-#     results = retriever.get_relevant_documents(query)
-#     context = "\n\n".join([doc.page_content for doc in results])
-#     answer = answer_chain.invoke({"query": query, "context": context})
-#     return answer["text"]
+def query_with_multi_query_retriever(query, k_initial=15):
+    retriever = create_multi_query_retriever(query)
+    # results = retriever.get_relevant_documents(query)
+    context = "\n\n".join([doc.page_content for doc in retriever])
+    answer = llm.invoke({"query": query, "context": context})
+    return answer["text"]
 
 if __name__ == "__main__":
     pdf_path = "./sample/sql.pdf"
@@ -105,6 +107,7 @@ if __name__ == "__main__":
         question = input("Ask a question about the video (or type 'q' to quit):\n")
         if question.lower() == "q":
             break
-        response = create_multi_query_retriever(question)
+        # response = create_multi_query_retriever(question)
+        response =  query_with_multi_query_retriever(question)
         print("🔹 Answering...")            
         print("\nAnswer:\n", response)
