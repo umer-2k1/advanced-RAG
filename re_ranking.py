@@ -12,8 +12,7 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain.retrievers import ContextualCompressionRetriever
 from langchain.retrievers.document_compressors import FlashrankRerank
 from qdrant_client.http.models import Distance, VectorParams
-from dotenv import load_dotenv 
-from langchain.retrievers import ContextualCompressionRetriever
+from dotenv import load_dotenv  
 from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
 from langchain_ollama.llms import OllamaLLM

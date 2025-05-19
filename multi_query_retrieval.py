@@ -9,6 +9,7 @@ from langchain.schema import Document
 from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
 from langchain_ollama.llms import OllamaLLM
+from langchain.retrievers.multi_query import MultiQueryRetriever
 from dotenv import load_dotenv
 from uuid import uuid4
 import os
@@ -21,7 +22,7 @@ os.environ["LANGCHAIN_TRACING_V2"] = os.getenv("LANGSMITH_TRACING_V2", "true")
 os.environ["LANGCHAIN_PROJECT"] = os.getenv("LANGSMITH_PROJECT")
 
 
-COLLECTION_NAME = f"hybrid-collection-{uuid4()}"
+COLLECTION_NAME = f"multi-query-retrieval-collection"
 ollama_model = "mistral:latest"
 
 qdrant_client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
@@ -30,9 +31,12 @@ embeddings = OllamaEmbeddings(
 )
 
 llm = OllamaLLM(model=ollama_model, streaming=True)
+ 
 
-# FastEmbed setup (dense + sparse)
-embedding = FastEmbedEmbeddings(model_name="BAAI/bge-base-en-v1.5")
+embeddings = OllamaEmbeddings(
+    model=ollama_model,
+)
+
 
 
 if not qdrant_client.collection_exists(collection_name=COLLECTION_NAME):
@@ -64,46 +68,29 @@ def upload_to_qdrant(documents):
         force_recreate=True,
     )
    
-def hybrid_search(query: str,k=5 ):
-    vectorstore  = QdrantVectorStore(
-        client=qdrant_client, 
-        collection_name=COLLECTION_NAME,
-        url=QDRANT_URL,
-        api_key=QDRANT_API_KEY,
-        embedding=embeddings,
-        retrieval_mode="hybrid",  #  enables sparse + dense retrieval
-        sparse_encoder = FastEmbedSparse(),
-
+def create_multi_query_retriever(query):
+    base_retriever = vector_store.as_retriever()
+    retriever = MultiQueryRetriever.from_llm(
+        llm=llm,
+        retriever=base_retriever,
+        # query_prompt=query_prompt, 
     )
-    retriever = vectorstore.as_retriever(search_kwargs={"k": k})
-    results  = retriever.get_relevant_documents(query)
-    return results 
-
-
-prompt_template = ChatPromptTemplate.from_template(
-    """
-    You are an intelligent assistant. Use the following context to answer the question.
-
-    Context:
-    {context}
-
-    Question:
-    {question}
-
-    Answer:
-    """
-)
-
-def query_llm(query, context):
-    results : list[Document] = hybrid_search(query)
-    context = "\n\n".join([doc.page_content for doc in results])
-    answer_chain = LLMChain(llm=llm, prompt=prompt_template)
-    response = answer_chain.run({"question": query, "context": context})
-    return response
+    unique_docs = retriever.invoke(query)
+    print("unique_docs::::::", unique_docs)
+    print("unique_docs length::::::", len(unique_docs))
+    return unique_docs
     
+     
 
-def main():
-    pdf_path = "./sample/war.pdf"
+# def query_with_multi_query_retriever(query, k_initial=15):
+#     retriever = create_multi_query_retriever(query, k_initial)
+#     results = retriever.get_relevant_documents(query)
+#     context = "\n\n".join([doc.page_content for doc in results])
+#     answer = answer_chain.invoke({"query": query, "context": context})
+#     return answer["text"]
+
+if __name__ == "__main__":
+    pdf_path = "./sample/sql.pdf"
     loader = PyPDFLoader(pdf_path)
     docs = loader.load()
     print("DOCS:::::", docs)
@@ -111,17 +98,13 @@ def main():
     upload_to_qdrant(splitted_docs)
     
     while True:
-        print("\n\n ----------------------------------")
+        print("\n\n ----------------------------------")    
         print("\n\n ----------------------------------")
         print("\n\n ----------------------------------")
         
         question = input("Ask a question about the video (or type 'q' to quit):\n")
         if question.lower() == "q":
             break
-        response = query_llm(question)
-        print("🔹 Answering...")
+        response = create_multi_query_retriever(question)
+        print("🔹 Answering...")            
         print("\nAnswer:\n", response)
-   
-if __name__ == "__main__":
-    main()
- 
